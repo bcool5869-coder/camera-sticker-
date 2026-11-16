@@ -1,6 +1,7 @@
 import { CHARACTERS, CHARACTER_IDS, NEUTRAL_BS, boostExpressions, detectEmotion, EMOTION_EMOJI } from './characters.js';
 import { drawHead, drawBody, bodyLayout } from './avatar2d.js';
 import { Recorder, extensionFor, pickMimeType } from './recorder.js';
+import { EMOJI_SETS, EMOJI_IDS, drawEmojiHead, preloadEmoji } from './emoji.js';
 
 const $ = (sel) => document.querySelector(sel);
 const DEMO = new URLSearchParams(location.search).has('demo');
@@ -10,7 +11,7 @@ const MAX_WIDTH = 1280;
 // ------------------------------------------------------------ settings
 
 const DEFAULTS = {
-  style: '2d', character: 'cat', mode: 'face', background: 'camera',
+  style: '2d', character: 'cat', avatar: 'vita', emoji: 'smiley', mode: 'face', background: 'camera',
   bgColor: '#3fb8af', boost: 1.2, fx: true, mic: true, debug: false,
 };
 const settings = { ...DEFAULTS };
@@ -19,6 +20,8 @@ try {
 } catch { /* storage unavailable */ }
 if (settings.character === 'custom' || !CHARACTERS[settings.character]) settings.character = 'cat';
 if (settings.background === 'image') settings.background = 'camera';
+if (!EMOJI_SETS[settings.emoji]) settings.emoji = 'smiley';
+if (String(settings.avatar).startsWith('file:')) settings.avatar = 'vita';
 
 function saveSettings() {
   try { localStorage.setItem('camera-sticker-settings', JSON.stringify(settings)); } catch { /* ignore */ }
@@ -105,6 +108,44 @@ async function ensure3d() {
     syncUi();
   }).finally(() => { loading3d = null; });
   return loading3d;
+}
+
+// ---- VRM avatars (loaded on first use)
+let avatarVrm = null;
+let vrmModels = [];
+let loadingVrm = null;
+let vrmProgress = null;
+let vrmFile = null;
+
+async function ensureVrm() {
+  if (!avatarVrm && !loadingVrm) {
+    loadingVrm = import('./avatarvrm.js').then((mod) => {
+      avatarVrm = new mod.AvatarVRM();
+      vrmModels = mod.VRM_MODELS;
+      buildCharacterChips();
+    }).catch((err) => {
+      console.error(err);
+      toast('3D avatars could not start on this device.');
+      settings.style = '2d';
+      syncUi();
+    }).finally(() => { loadingVrm = null; });
+  }
+  await loadingVrm;
+  if (!avatarVrm) return;
+  const want = vrmFile || settings.avatar;
+  vrmProgress = 0;
+  try {
+    await avatarVrm.load(want, (f) => { vrmProgress = f; });
+  } catch (err) {
+    console.error(err);
+    toast('That avatar could not be loaded. Switching to Vita.');
+    vrmFile = null;
+    settings.avatar = 'vita';
+    saveSettings();
+    syncUi();
+  } finally {
+    vrmProgress = null;
+  }
 }
 
 function needPose() {
@@ -281,7 +322,17 @@ function loop() {
   // 2. Character
   const ch = CHARACTERS[settings.character] || CHARACTERS.cat;
   const use3d = settings.style === '3d' && avatar3d && !customSticker;
-  if (use3d) {
+  if (settings.style === 'avatar' && avatarVrm && avatarVrm.vrm) {
+    avatarVrm.resize(W, H);
+    ctx.drawImage(avatarVrm.render(head, layout, body), 0, 0);
+  } else if (settings.style === 'avatar') {
+    // Avatar still downloading: keep the person hidden behind a 2D sticker meanwhile.
+    if (layout) drawBody(ctx, ch, layout, head);
+    if (head) drawHead(ctx, ch, head, null);
+  } else if (settings.style === 'emoji' && !customSticker) {
+    if (layout) drawBody(ctx, CHARACTERS.bear, layout, head);
+    if (head) drawEmojiHead(ctx, settings.emoji, head);
+  } else if (use3d) {
     avatar3d.setCharacter(settings.character);
     avatar3d.resize(W, H);
     ctx.drawImage(avatar3d.render(head, layout, body), 0, 0);
@@ -310,6 +361,7 @@ function updateHud(faceOk, layout, now) {
   if (settings.mode === 'body') parts.push(layout ? 'Body ✓' : 'Body –');
   parts.push(`${EMOTION_EMOJI[currentEmotion]} ${currentEmotion}`);
   if (settings.debug) parts.push(`${Math.round(fps)} fps`);
+  if (vrmProgress !== null && settings.style === 'avatar') parts.push(`Loading avatar ${Math.round(vrmProgress * 100)}%`);
   $('#status').textContent = parts.join(' · ');
   if (recorder?.recording) {
     const s = Math.floor((Date.now() - recStartedAt) / 1000);
@@ -326,20 +378,35 @@ function toast(msg) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 3500);
 }
 
+function chip(label, icon, attrs, onclick) {
+  const b = document.createElement('button');
+  b.className = 'chip';
+  Object.assign(b.dataset, attrs);
+  b.innerHTML = `<span class="chip-emoji">${icon}</span>`;
+  b.append(label);
+  b.onclick = onclick;
+  return b;
+}
+
+let chipsStyle = null;
 function buildCharacterChips() {
   const wrap = $('#characters');
-  for (const id of CHARACTER_IDS) {
-    const b = document.createElement('button');
-    b.className = 'chip';
-    b.dataset.character = id;
-    b.innerHTML = `<span class="chip-emoji">${CHARACTERS[id].emoji}</span>${CHARACTERS[id].name}`;
-    b.onclick = () => {
-      customSticker = null;
-      settings.character = id;
-      saveSettings();
-      syncUi();
-    };
-    wrap.appendChild(b);
+  wrap.textContent = '';
+  chipsStyle = settings.style;
+  const pick = (key, id) => () => {
+    customSticker = null;
+    if (key === 'avatar') vrmFile = null;
+    settings[key] = id;
+    saveSettings();
+    syncUi();
+  };
+  if (settings.style === 'emoji') {
+    for (const id of EMOJI_IDS) wrap.appendChild(chip(EMOJI_SETS[id].name, EMOJI_SETS[id].icon, { emoji: id }, pick('emoji', id)));
+  } else if (settings.style === 'avatar') {
+    if (!vrmModels.length) { wrap.textContent = 'Loading avatars…'; return; }
+    for (const m of vrmModels) wrap.appendChild(chip(m.name, m.emoji, { avatar: m.id }, pick('avatar', m.id)));
+  } else {
+    for (const id of CHARACTER_IDS) wrap.appendChild(chip(CHARACTERS[id].name, CHARACTERS[id].emoji, { character: id }, pick('character', id)));
   }
 }
 
@@ -350,10 +417,23 @@ function syncUi() {
       b.setAttribute('aria-pressed', String(b.dataset.value === String(settings[key])));
     });
   });
+  if (chipsStyle !== settings.style) buildCharacterChips();
   document.querySelectorAll('#characters .chip').forEach((b) => {
-    b.setAttribute('aria-pressed', String(!customSticker && b.dataset.character === settings.character));
+    const on = b.dataset.character ? b.dataset.character === settings.character
+      : b.dataset.emoji ? b.dataset.emoji === settings.emoji
+        : !vrmFile && b.dataset.avatar === settings.avatar;
+    b.setAttribute('aria-pressed', String(!customSticker && on));
   });
+  const isAvatar = settings.style === 'avatar';
+  $('#stickerChip').hidden = isAvatar;
+  $('#vrmChip').hidden = !isAvatar;
+  $('#vrmChip').setAttribute('aria-pressed', String(!!vrmFile));
   $('#stickerChip').setAttribute('aria-pressed', String(!!customSticker));
+  $('#charHint').textContent = isAvatar
+    ? 'Full 3D avatars that copy your face, head and arms. Vita has the most expressions; the others download when picked (free CC0 models).'
+    : settings.style === 'emoji'
+      ? 'Smiley, Cat and Monkey change face with your expression. Others follow your head.'
+      : 'Use a PNG with a transparent background. It follows your head, but has no expressions.';
   $('#bgColor').value = settings.bgColor;
   $('#colorRow').hidden = settings.background !== 'color';
   $('#imageRow').hidden = settings.background !== 'image';
@@ -364,6 +444,8 @@ function syncUi() {
   $('#mic').checked = settings.mic;
   $('#debug').checked = settings.debug;
   if (settings.style === '3d') ensure3d();
+  if (settings.style === 'avatar') ensureVrm();
+  if (settings.style === 'emoji') preloadEmoji(settings.emoji);
 }
 
 function updatePlateUi() {
@@ -412,6 +494,11 @@ function wireUi() {
   $('#bgFile').onchange = async (e) => {
     const f = e.target.files[0];
     if (f) bgImage = await loadImage(f);
+    e.target.value = '';
+  };
+  $('#vrmFile').onchange = (e) => {
+    const f = e.target.files[0];
+    if (f) { vrmFile = f; customSticker = null; syncUi(); }
     e.target.value = '';
   };
   $('#stickerFile').onchange = async (e) => {

@@ -110,7 +110,10 @@ export class Avatar3D {
 
     // Skull
     const skullGeo = square ? new THREE.BoxGeometry(1.9, 1.76, 1.6, 4, 4, 4) : this.unitSphere;
+    const skullScale = ch.head === 'wide' ? [1.1, 0.92, 1] : ch.head === 'alien' ? [1, 1.05, 0.95] : [1, 1, 1];
     this.skull = this.withOutline(pivot, skullGeo, this.mat(ch.skin), square ? 0.03 : 0.04);
+    this.skullScale = skullScale;
+    this.skull.scale.set(...skullScale);
 
     // Ears
     const earMat = this.mat(ch.earColor || ch.skin);
@@ -137,6 +140,20 @@ export class Avatar3D {
         const inner = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.6, 8, 16), innerMat);
         inner.position.set(0, 0.03, 0.12);
         ear.add(inner);
+      } else if (ch.ear === 'floppy') {
+        const ear = this.sphere(pivot, ch.earColor || ch.skin, [s * 0.9, -0.05, -0.1], [0.26, 0.55, 0.18], 0.08);
+        ear.rotation.z = s * 0.25;
+      } else if (ch.ear === 'frog') {
+        this.sphere(pivot, ch.skin, [s * 0.47, 0.62, 0.35], [0.34, 0.31, 0.31], 0.06);
+      } else if (ch.ear === 'antenna') {
+        const a = new THREE.Vector3(s * 0.3, 0.85, 0);
+        const b = new THREE.Vector3(s * 0.62, 1.38, 0);
+        const stick = new THREE.Mesh(this.unitCyl, this.mat(ch.skin));
+        stick.position.copy(a.clone().add(b).multiplyScalar(0.5));
+        stick.scale.set(0.04, a.distanceTo(b), 0.04);
+        stick.rotation.z = Math.atan2(b.y - a.y, b.x - a.x) - Math.PI / 2;
+        pivot.add(stick);
+        this.sphere(pivot, ch.accent || ch.skin, [b.x, b.y, 0], [0.12, 0.12, 0.12], 0.08);
       } else if (ch.ear === 'bolt') {
         const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.22, 20), this.mat(ch.skin2));
         bolt.rotation.z = Math.PI / 2;
@@ -154,14 +171,15 @@ export class Avatar3D {
 
     // Muzzle
     if (ch.muzzle) {
-      this.muzzle = this.sphere(pivot, ch.skin2, [0, -0.28, 0.72], [0.48, 0.34, 0.36]);
+      this.muzzle = this.sphere(pivot, ch.muzzle, [0, -0.28, 0.72], [0.48, 0.34, 0.36]);
     }
 
     // Eyes
     this.eyes = [];
     for (const s of [-1, 1]) {
       const g = new THREE.Group();
-      g.position.set(s * 0.36, -0.02, faceZ);
+      const frog = ch.eyes === 'frog';
+      g.position.set(s * (frog ? 0.47 : 0.36), frog ? 0.64 : -0.02, frog ? 0.62 : faceZ);
       pivot.add(g);
       if (ch.patches) {
         const p = this.sphere(g, ch.patches, [0, -0.02, -0.05], [0.22, 0.28, 0.1]);
@@ -193,7 +211,8 @@ export class Avatar3D {
       g.add(closed);
 
       const brow = new THREE.Group();
-      brow.position.set(s * 0.36, 0.3, faceZ + 0.04);
+      const browY = frog ? 0.98 : 0.3;
+      brow.position.set(s * (frog ? 0.47 : 0.36), browY, frog ? 0.5 : faceZ + 0.04);
       pivot.add(brow);
       const browMesh = new THREE.Mesh(
         new THREE.CapsuleGeometry(0.035, 0.22, 4, 10),
@@ -202,7 +221,7 @@ export class Avatar3D {
       browMesh.rotation.z = Math.PI / 2;
       brow.add(browMesh);
 
-      this.eyes.push({ s, group: g, open, pupil, closed, brow });
+      this.eyes.push({ s, group: g, open, pupil, closed, brow, browY });
     }
 
     // Blush
@@ -256,7 +275,7 @@ export class Avatar3D {
     this.headRoot.scale.setScalar(R * 0.98);
     this.pivot.rotation.set(head.pitch * 0.9, head.yaw * 1.1, -head.roll, 'ZYX');
     const bs = head.bs;
-    this.skull.scale.x = 1 + bs.cheekPuff * 0.1;
+    this.skull.scale.x = this.skullScale[0] * (1 + bs.cheekPuff * 0.1);
 
     for (const e of this.eyes) {
       const blink = e.s < 0 ? bs.blinkL : bs.blinkR;
@@ -273,7 +292,7 @@ export class Avatar3D {
 
       const down = e.s < 0 ? bs.browDownL : bs.browDownR;
       const outerUp = e.s < 0 ? bs.browOuterUpL : bs.browOuterUpR;
-      e.brow.position.y = 0.3 + (bs.browInnerUp * 0.6 + outerUp * 0.4) * 0.13 - down * 0.07;
+      e.brow.position.y = e.browY + (bs.browInnerUp * 0.6 + outerUp * 0.4) * 0.13 - down * 0.07;
       e.brow.rotation.z = e.s * (down * 0.45 - bs.browInnerUp * 0.3 - outerUp * 0.1);
     }
 
