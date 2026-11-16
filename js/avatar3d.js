@@ -22,6 +22,9 @@ export class Avatar3D {
       canvas: this.canvas, alpha: true, antialias: true, preserveDrawingBuffer: true,
     });
     this.renderer.setPixelRatio(1);
+    // iPhones can drop the 3D context under memory pressure; the app then falls back to 2D.
+    this.lost = false;
+    this.canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; });
     this.renderer.setClearColor(0x000000, 0);
     this.scene = new THREE.Scene();
     this.camera = new THREE.OrthographicCamera(0, 1, 0, -1, -5000, 5000);

@@ -319,8 +319,41 @@ function loop() {
     ctx.drawImage(cutout(frame, mask), 0, 0);
   }
 
-  // 2. Character
+  // 2. Privacy cover: blur the real face underneath the character, so the face
+  //    stays hidden even if a character fails to draw on this device.
+  if (head && (settings.background === 'camera' || faceOk)) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(head.x, head.y, head.r * 1.05, head.r * 1.15, head.roll, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(makeBlurred(), 0, 0);
+    ctx.restore();
+  }
+
+  // 3. Character
   const ch = CHARACTERS[settings.character] || CHARACTERS.cat;
+  try {
+    drawCharacter(ch, head, layout, body);
+  } catch (err) {
+    console.error(err);
+    fallbackTo2d('The character crashed on this device, so it switched to 2D.');
+    if (layout) drawBody(ctx, ch, layout, head);
+    if (head) drawHead(ctx, ch, head, null);
+  }
+
+  // 4. Extras
+  currentEmotion = faceOk ? detectEmotion(head.bs) : 'neutral';
+  updateFx(faceOk ? head : null, currentEmotion, now, dt);
+  if (settings.debug) drawDebug(st, head);
+  if (hidden) hiddenNotice();
+
+  updateHud(faceOk, layout, now);
+}
+
+function drawCharacter(ch, head, layout, body) {
+  if (avatarVrm?.lost || avatar3d?.lost) {
+    fallbackTo2d('3D graphics stopped on this device, so it switched to 2D.');
+  }
   const use3d = settings.style === '3d' && avatar3d && !customSticker;
   if (settings.style === 'avatar' && avatarVrm && avatarVrm.vrm) {
     avatarVrm.resize(W, H);
@@ -340,15 +373,15 @@ function loop() {
     if (layout) drawBody(ctx, ch, layout, head);
     if (head) drawHead(ctx, ch, head, customSticker);
   }
-  if (use3d && customSticker && head) drawHead(ctx, ch, head, customSticker);
+}
 
-  // 3. Extras
-  currentEmotion = faceOk ? detectEmotion(head.bs) : 'neutral';
-  updateFx(faceOk ? head : null, currentEmotion, now, dt);
-  if (settings.debug) drawDebug(st, head);
-  if (hidden) hiddenNotice();
-
-  updateHud(faceOk, layout, now);
+let fellBack = false;
+function fallbackTo2d(msg) {
+  if (settings.style === '2d' || settings.style === 'emoji') return;
+  settings.style = '2d';
+  saveSettings();
+  syncUi();
+  if (!fellBack) { fellBack = true; toast(msg); }
 }
 
 // ------------------------------------------------------------ HUD + UI

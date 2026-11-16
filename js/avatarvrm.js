@@ -21,7 +21,7 @@ export const VRM_MODELS = [
   { id: 'pumpkin', name: 'Pumpkin', url: 'https://arweave.net/f9dR81jI8dmPEm2jFcKEL3y5dtdq7fUwUmPUNrEFLu4', emoji: '🎃' },
 ];
 
-const HEAD_SIZE = 0.3; // metres covered by the tracked head circle diameter
+const HEAD_SIZE = 0.25; // metres covered by the tracked head circle diameter
 
 export class AvatarVRM {
   constructor() {
@@ -30,6 +30,9 @@ export class AvatarVRM {
       canvas: this.canvas, alpha: true, antialias: true, preserveDrawingBuffer: true,
     });
     this.renderer.setPixelRatio(1);
+    // iPhones can drop the 3D context under memory pressure; the app then falls back to 2D.
+    this.lost = false;
+    this.canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; });
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.scene = new THREE.Scene();
@@ -90,6 +93,9 @@ export class AvatarVRM {
       this.vrm = vrm;
       this.holder.add(vrm.scene);
       if (vrm.lookAt) vrm.lookAt.autoUpdate = false;
+      // VRM 0.x models are turned around to face the camera, which mirrors the
+      // x/z rotation axes of their bones; VRM 1.0 models are not.
+      this.flip = vrm.meta?.metaVersion === '0' ? -1 : 1;
       this.measure();
       this.currentId = key;
     } finally {
@@ -118,12 +124,13 @@ export class AvatarVRM {
   restArms() {
     const lu = this.bone('leftUpperArm');
     const ru = this.bone('rightUpperArm');
-    if (lu) lu.rotation.set(0, 0, -1.2);
-    if (ru) ru.rotation.set(0, 0, 1.2);
+    const f = this.flip ?? 1;
+    if (lu) lu.rotation.set(0, 0, -1.2 * f);
+    if (ru) ru.rotation.set(0, 0, 1.2 * f);
     const ll = this.bone('leftLowerArm');
     const rl = this.bone('rightLowerArm');
-    if (ll) ll.rotation.set(0, 0, -0.15);
-    if (rl) rl.rotation.set(0, 0, 0.15);
+    if (ll) ll.rotation.set(0, 0, -0.15 * f);
+    if (rl) rl.rotation.set(0, 0, 0.15 * f);
   }
 
   setExpr(name, v) {
@@ -149,8 +156,9 @@ export class AvatarVRM {
     const headB = this.bone('head');
     const spine = this.bone('upperChest') || this.bone('chest') || this.bone('spine');
     const yaw = head.yaw * 1.1;
-    const pitch = head.pitch * 0.9;
-    const roll = -head.roll;
+    const f = this.flip ?? 1;
+    const pitch = head.pitch * 0.9 * f;
+    const roll = -head.roll * f;
     if (headB) headB.rotation.set(pitch * 0.6, yaw * 0.6, roll * 0.6, 'YXZ');
     if (neck) neck.rotation.set(pitch * 0.4, yaw * 0.4, roll * 0.4, 'YXZ');
 
@@ -158,7 +166,7 @@ export class AvatarVRM {
     if (showBody && layout) {
       const shoulderAngle = Math.atan2(layout.sR.y - layout.sL.y, layout.sR.x - layout.sL.x);
       const lean = shoulderAngle > Math.PI / 2 ? shoulderAngle - Math.PI : shoulderAngle < -Math.PI / 2 ? shoulderAngle + Math.PI : shoulderAngle;
-      if (spine) spine.rotation.set(0, 0, -lean * 0.8);
+      if (spine) spine.rotation.set(0, 0, -lean * 0.8 * f);
       this.poseArms(layout);
     } else {
       if (spine) spine.rotation.set(0, 0, 0);
@@ -202,12 +210,17 @@ export class AvatarVRM {
       const ang = (a, b) => Math.atan2(-(b.y - a.y), b.x - a.x);
       const upper = ang(arm.shoulder, arm.elbow);
       const ub = this.bone(side + 'UpperArm');
-      if (ub) ub.rotation.set(0, 0, wrap(upper - rest));
+      // For VRM 0.x the arm's own axis points the other way, so mirror the angle.
+      const f = this.flip ?? 1;
+      const restLocal = f > 0 ? rest : (side === 'left' ? Math.PI : 0);
+      const upperLocal = f > 0 ? upper : Math.PI - upper;
+      if (ub) ub.rotation.set(0, 0, wrap(upperLocal - restLocal));
       const lb = this.bone(side + 'LowerArm');
-      if (lb) lb.rotation.set(0, 0, arm.wrist ? wrap(ang(arm.elbow, arm.wrist) - upper) : 0);
+      if (lb) lb.rotation.set(0, 0, arm.wrist ? wrap((ang(arm.elbow, arm.wrist) - upper) * f) : 0);
     }
-    if (!done.left) { const b = this.bone('leftUpperArm'); if (b) b.rotation.set(0, 0, -1.2); }
-    if (!done.right) { const b = this.bone('rightUpperArm'); if (b) b.rotation.set(0, 0, 1.2); }
+    const f = this.flip ?? 1;
+    if (!done.left) { const b = this.bone('leftUpperArm'); if (b) b.rotation.set(0, 0, -1.2 * f); }
+    if (!done.right) { const b = this.bone('rightUpperArm'); if (b) b.rotation.set(0, 0, 1.2 * f); }
   }
 }
 

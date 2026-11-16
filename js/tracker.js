@@ -27,6 +27,7 @@ export const PL = {
 };
 
 const POSE_KEYS = Object.keys(PL);
+const BASELINE_KEYS = new Set(['browDownL', 'browDownR', 'browInnerUp', 'browOuterUpL', 'browOuterUpR', 'frown', 'smile', 'wideL', 'wideR', 'pucker']);
 
 async function createTask(TaskClass, fileset, modelPath, extra) {
   for (const delegate of ['GPU', 'CPU']) {
@@ -64,7 +65,7 @@ export class Tracker {
     this.angFilters = new FilterBank(1.5, 0.4);
     this.bsFilters = new FilterBank(4.0, 1.5);
     this.poseFilters = new FilterBank(1.0, 0.006);
-    this.calib = { yaw: 0.5, pitch: 0.5, samples: 0 };
+    this.calib = { yaw: 0.5, pitch: 0.5, samples: 0, base: {} };
     this.sideVote = 0; // >0: MediaPipe "Left" = screen left, <0: swapped
     this.maskCanvas = document.createElement('canvas');
     this.maskCtx = this.maskCanvas.getContext('2d', { willReadFrequently: true });
@@ -91,7 +92,7 @@ export class Tracker {
   }
 
   recalibrate() {
-    this.calib = { yaw: 0.5, pitch: 0.5, samples: 0 };
+    this.calib = { yaw: 0.5, pitch: 0.5, samples: 0, base: {} };
   }
 
   // frame: full-res mirrored canvas; small: downscaled copy for pose/segmentation.
@@ -192,7 +193,18 @@ export class Tracker {
     const [smileL, smileR] = side('mouthSmile');
     const [frownL, frownR] = side('mouthFrown');
 
-    const B = (name, v) => clamp(this.bsFilters.f(name, v, t), 0, 1);
+    // Expressions are measured against your own resting face (learned in the first
+    // second), so naturally low eyebrows or a resting frown don't read as emotions.
+    const base = this.calib.base;
+    const learning = this.calib.samples < 30;
+    const B = (name, v) => {
+      if (BASELINE_KEYS.has(name)) {
+        if (learning) base[name] = (base[name] ?? v) + (v - (base[name] ?? v)) / this.calib.samples;
+        const b0 = Math.min(0.6, base[name] ?? 0);
+        v = (v - b0) / (1 - b0);
+      }
+      return clamp(this.bsFilters.f(name, v, t), 0, 1);
+    };
     const bs = cats.length ? {
       blinkL: B('blinkL', blinkL), blinkR: B('blinkR', blinkR),
       wideL: B('wideL', wideL), wideR: B('wideR', wideR),
