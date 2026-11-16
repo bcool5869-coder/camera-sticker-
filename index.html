@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sticker Cam</title>
+  <meta name="description" content="Record videos as a cartoon character that follows your head, body and facial expressions. Your real face never appears.">
+  <meta name="theme-color" content="#14151a">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
+      "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs"
+    }
+  }
+  </script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <section id="start" class="start">
+    <div class="start-card">
+      <div class="start-faces" aria-hidden="true">🐱 🐻 🐼 🐰 🤖</div>
+      <h1>Sticker Cam</h1>
+      <p>Record videos as a cartoon character. It copies your head, body and facial expressions, so your real face never shows.</p>
+      <button id="startBtn" class="primary">Start camera</button>
+      <button id="demoBtn" class="ghost">Try the demo (no camera)</button>
+      <p id="startError" class="error" role="alert"></p>
+      <p class="fine">Everything runs on your device. Video is never uploaded.</p>
+    </div>
+  </section>
+
+  <main id="stage" class="stage" hidden>
+    <div class="viewport">
+      <canvas id="out" aria-label="Character camera preview"></canvas>
+      <div class="hud">
+        <div id="status" class="pill">Starting…</div>
+        <div id="recPill" class="pill rec" hidden><span class="dot"></span><span id="recTime">00:00</span></div>
+      </div>
+      <div id="toast" class="toast" role="status" hidden></div>
+      <div class="controls">
+        <button id="photoBtn" class="round" aria-label="Take photo">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M9 3 7.2 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></svg>
+        </button>
+        <button id="recBtn" class="rec-btn" aria-label="Start recording"><span></span></button>
+        <button id="settingsBtn" class="round" aria-label="Settings" aria-expanded="false" aria-controls="panel">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M3 6h11.2a3 3 0 0 1 5.6 0H21v2h-1.2a3 3 0 0 1-5.6 0H3V6Zm14 1a1 1 0 1 0 0 0Zm0-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM3 16h1.2a3 3 0 0 1 5.6 0H21v2H9.8a3 3 0 0 1-5.6 0H3v-2Zm4 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <aside id="panel" class="panel" aria-label="Settings">
+      <div class="panel-head">
+        <h2>Settings</h2>
+        <button id="closePanel" class="icon" aria-label="Close settings">✕</button>
+      </div>
+
+      <div class="section">
+        <h3>Style</h3>
+        <div class="seg" data-setting="style">
+          <button data-value="2d">2D</button>
+          <button data-value="3d">3D</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Character</h3>
+        <div id="characters" class="chips"></div>
+        <label id="stickerChip" class="chip upload" aria-pressed="false">
+          <span class="chip-emoji">🖼️</span>Your own sticker
+          <input id="stickerFile" type="file" accept="image/*" hidden>
+        </label>
+        <p class="hint">Use a PNG with a transparent background. It follows your head, but has no expressions.</p>
+      </div>
+
+      <div class="section">
+        <h3>Tracking</h3>
+        <div class="seg" data-setting="mode">
+          <button data-value="face">Face only</button>
+          <button data-value="body">Full body</button>
+        </div>
+        <button id="recalibrate" class="ghost small">Re-centre head (look straight ahead)</button>
+      </div>
+
+      <div class="section">
+        <h3>Background</h3>
+        <div class="seg four" data-setting="background">
+          <button data-value="camera">Camera</button>
+          <button data-value="blur">Blur</button>
+          <button data-value="color">Colour</button>
+          <button data-value="image">Image</button>
+        </div>
+        <div id="colorRow" class="row">
+          <label for="bgColor">Colour</label>
+          <input id="bgColor" type="color">
+        </div>
+        <div id="imageRow" class="row">
+          <label class="ghost small file-btn">Choose image…<input id="bgFile" type="file" accept="image/*" hidden></label>
+        </div>
+        <div id="plateRow" class="plate">
+          <p class="hint">To hide your real body completely, save a photo of the empty room. Otherwise your body area is blurred.</p>
+          <button id="capturePlate" class="ghost small">Capture empty room</button>
+          <button id="clearPlate" class="ghost small" hidden>Clear</button>
+          <p id="plateState" class="hint"></p>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Expressions</h3>
+        <div class="row">
+          <label for="boost">Strength</label>
+          <input id="boost" type="range" min="0.5" max="2" step="0.1">
+          <span id="boostVal" class="val"></span>
+        </div>
+        <label class="toggle"><input id="fx" type="checkbox"> Emotion effects (💖 💢 ❗ 💧)</label>
+      </div>
+
+      <div class="section">
+        <h3>Recording</h3>
+        <label class="toggle"><input id="mic" type="checkbox"> Record microphone</label>
+        <label class="toggle"><input id="debug" type="checkbox"> Show tracking points</label>
+      </div>
+    </aside>
+  </main>
+
+  <dialog id="result" class="result">
+    <video id="resultVideo" controls playsinline></video>
+    <p id="resultInfo" class="hint"></p>
+    <div class="result-actions">
+      <a id="downloadLink" class="primary" href="#">Download video</a>
+      <button id="closeResult" class="ghost">Close</button>
+    </div>
+  </dialog>
+</body>
+</html>
