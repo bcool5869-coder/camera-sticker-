@@ -5,19 +5,19 @@ export const CHARACTERS = {
   cat: {
     name: 'Cat', emoji: '🐱',
     skin: '#f6a54a', skin2: '#fff1dc', muzzle: '#fff1dc', outline: '#6b3a12',
-    ear: 'cat', earInner: '#ffbfcd', nose: '#f27a93', iris: '#4f9a2c', whiskers: true,
+    fluff: true, lobes: true, catMouth: true, lashes: true, accessory: 'bow', ear: 'cat', earInner: '#ffbfcd', nose: '#f27a93', iris: '#4f9a2c', whiskers: true,
     shirt: '#4f7cff', pants: '#2c3e66', hand: '#fff1dc',
   },
   dog: {
     name: 'Puppy', emoji: '🐶',
     skin: '#e3b47c', skin2: '#fff3e2', muzzle: '#fff3e2', outline: '#5c3a1c',
-    ear: 'floppy', earColor: '#8a5a33', spot: '#c08a55', nose: '#2d1e16', bigNose: true, iris: '#6b3f1d',
+    tongue: true, ear: 'floppy', earColor: '#8a5a33', spot: '#c08a55', nose: '#2d1e16', bigNose: true, iris: '#6b3f1d',
     shirt: '#ff8a3d', pants: '#36507a', hand: '#fff3e2',
   },
   fox: {
     name: 'Fox', emoji: '🦊',
     skin: '#f5803a', skin2: '#fff6ec', cheeks: '#fff6ec', outline: '#6e2f0b',
-    ear: 'cat', earInner: '#3b2216', nose: '#2d1e16', iris: '#c98a1c',
+    fluff: true, lashes: true, ear: 'cat', earInner: '#3b2216', nose: '#2d1e16', iris: '#c98a1c',
     shirt: '#2fa59a', pants: '#27415e', hand: '#3b2216', arm: '#f5803a',
   },
   bear: {
@@ -35,31 +35,31 @@ export const CHARACTERS = {
   bunny: {
     name: 'Bunny', emoji: '🐰',
     skin: '#f7f3fb', skin2: '#ffffff', muzzle: '#ffffff', outline: '#5a4f6b',
-    ear: 'bunny', earInner: '#ffbfd0', nose: '#f07c9a', teeth: true, iris: '#7a4fb0',
+    lobes: true, catMouth: true, lashes: true, accessory: 'flower', ear: 'bunny', earInner: '#ffbfd0', nose: '#f07c9a', teeth: true, iris: '#7a4fb0',
     shirt: '#a66cff', pants: '#3f3a73', hand: '#ffffff',
   },
   tiger: {
     name: 'Tiger', emoji: '🐯',
     skin: '#f9a03c', skin2: '#fff6e8', muzzle: '#fff6e8', outline: '#4a2510', stripes: '#3a1f10',
-    ear: 'cat', earInner: '#fff6e8', nose: '#e8657e', iris: '#6aa82a', whiskers: true,
+    fluff: true, lobes: true, catMouth: true, ear: 'cat', earInner: '#fff6e8', nose: '#e8657e', iris: '#6aa82a', whiskers: true,
     shirt: '#2f6fd6', pants: '#1f2f4f', hand: '#fff6e8',
   },
   frog: {
     name: 'Frog', emoji: '🐸',
     skin: '#7ccd5a', skin2: '#c9f0a8', outline: '#2c5a1c', head: 'wide',
-    ear: 'frog', eyes: 'frog', nostrils: true, wideMouth: true, mouthY: 0.35, iris: '#3a2a12', blush: '#ff8fa3',
+    accessory: 'crown', ear: 'frog', eyes: 'frog', nostrils: true, wideMouth: true, mouthY: 0.35, iris: '#3a2a12', blush: '#ff8fa3',
     shirt: '#ffcf3a', pants: '#2c5a1c', hand: '#7ccd5a', arm: '#7ccd5a',
   },
   robot: {
     name: 'Robot', emoji: '🤖',
     skin: '#c3cee0', skin2: '#e3e9f2', outline: '#2b3442',
-    ear: 'bolt', head: 'square', glow: '#38f2ff', nose: null, blush: '#ff9fb8',
+    rivets: true, ear: 'bolt', head: 'square', glow: '#38f2ff', nose: null, blush: '#ff9fb8',
     shirt: '#5d6b80', pants: '#3a4352', hand: '#8d9ab0', arm: '#8d9ab0',
   },
   alien: {
     name: 'Alien', emoji: '👽',
     skin: '#9fe07a', skin2: '#c9f5ad', outline: '#2f5a1e', head: 'alien',
-    ear: 'antenna', accent: '#ff7ad1', eyes: 'alien', nose: null, nostrils: true, blush: '#7cc95a',
+    spots: '#bdf0a0', ear: 'antenna', accent: '#ff7ad1', eyes: 'alien', nose: null, nostrils: true, blush: '#7cc95a',
     shirt: '#6a4cff', pants: '#2b2466', hand: '#9fe07a', arm: '#9fe07a',
   },
 };

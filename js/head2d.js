@@ -106,6 +106,67 @@ function topShapes(ctx, ch, R, paintFn) {
   }
 }
 
+// Fluffy cheek tufts that poke out past the head outline.
+function tuftShape(ctx, R, s) {
+  ctx.beginPath();
+  ctx.moveTo(s * R * 0.86, -R * 0.05);
+  ctx.lineTo(s * R * 1.16, R * 0.16);
+  ctx.lineTo(s * R * 0.98, R * 0.24);
+  ctx.lineTo(s * R * 1.12, R * 0.42);
+  ctx.lineTo(s * R * 0.9, R * 0.46);
+  ctx.lineTo(s * R * 0.94, R * 0.62);
+  ctx.lineTo(s * R * 0.6, R * 0.62);
+  ctx.closePath();
+}
+
+// Small decorations; `border` draws the white sticker edge behind them.
+function drawAccessory(ctx, ch, R, border) {
+  const lw = R * 0.04;
+  const pf = (fill) => (border ? paint(ctx, '#ffffff', '#ffffff', R * 0.14) : paint(ctx, fill, ch.outline, lw));
+  ctx.save();
+  if (ch.accessory === 'bow') {
+    ctx.translate(R * 0.5, -R * 0.84);
+    ctx.rotate(0.35);
+    for (const k of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(k * R * 0.32, -R * 0.3, k * R * 0.34, 0);
+      ctx.quadraticCurveTo(k * R * 0.32, R * 0.3, 0, 0);
+      pf('#ff5d8f');
+    }
+    ellipse(ctx, 0, 0, R * 0.09, R * 0.09);
+    pf('#ff86ab');
+  } else if (ch.accessory === 'flower') {
+    ctx.translate(-R * 0.55, -R * 0.78);
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      ellipse(ctx, Math.cos(a) * R * 0.13, Math.sin(a) * R * 0.13, R * 0.11, R * 0.11);
+      pf('#ffb3cf');
+    }
+    ellipse(ctx, 0, 0, R * 0.09, R * 0.09);
+    pf('#ffd23f');
+  } else if (ch.accessory === 'crown') {
+    ctx.translate(0, -R * 0.86);
+    ctx.beginPath();
+    ctx.moveTo(-R * 0.3, R * 0.06);
+    ctx.lineTo(-R * 0.32, -R * 0.22);
+    ctx.lineTo(-R * 0.16, -R * 0.08);
+    ctx.lineTo(0, -R * 0.3);
+    ctx.lineTo(R * 0.16, -R * 0.08);
+    ctx.lineTo(R * 0.32, -R * 0.22);
+    ctx.lineTo(R * 0.3, R * 0.06);
+    ctx.closePath();
+    pf('#ffc93c');
+    if (!border) {
+      for (const [x, c] of [[-R * 0.15, '#ff5d73'], [0, '#3fb8ff'], [R * 0.15, '#ff5d73']]) {
+        ellipse(ctx, x, -R * 0.02, R * 0.04, R * 0.04);
+        paint(ctx, c);
+      }
+    }
+  }
+  ctx.restore();
+}
+
 // ---------------------------------------------------------------- head
 
 export function drawCharacterHead(ctx, ch, head) {
@@ -131,6 +192,7 @@ export function drawCharacterHead(ctx, ch, head) {
   const white = () => paint(ctx, '#ffffff', '#ffffff', R * 0.2);
   ctx.save(); ctx.translate(earOx, 0);
   for (const s of [-1, 1]) if (earShapes(ctx, ch, R, s, 'outer')) white();
+  if (ch.fluff) for (const s of [-1, 1]) { tuftShape(ctx, R, s); white(); }
   topShapes(ctx, ch, R, (k) => (k === 'line' ? paint(ctx, null, '#ffffff', R * 0.25) : white()));
   ctx.restore();
   skullPath(ctx, ch, R, puff);
@@ -150,6 +212,8 @@ export function drawCharacterHead(ctx, ch, head) {
     else paint(ctx, ch.glow || ch.accent || ch.skin, outline, lw);
   });
   ctx.restore();
+
+  if (ch.fluff) for (const s of [-1, 1]) { tuftShape(ctx, R, s); paint(ctx, shade(ch.skin, -0.05), outline, lw); }
 
   // 3. Skull with soft light from the top-left.
   skullPath(ctx, ch, R, puff);
@@ -187,6 +251,23 @@ export function drawCharacterHead(ctx, ch, head) {
     ellipse(ctx, fx + R * 0.38 * cy, -R * 0.12 + fy, R * 0.3, R * 0.28, 0.4);
     paint(ctx, ch.spot);
   }
+  if (ch.spots) {
+    for (const [x, y, r] of [[-0.55, -0.55, 0.1], [-0.72, -0.25, 0.06], [0.6, -0.6, 0.08], [0.4, -0.8, 0.05]]) {
+      ellipse(ctx, x * R, y * R, r * R, r * R);
+      paint(ctx, ch.spots);
+    }
+  }
+  if (ch.rivets) {
+    for (const [x, y] of [[-0.78, -0.72], [0.78, -0.72], [-0.78, 0.72], [0.78, 0.72]]) {
+      ellipse(ctx, x * R, y * R, R * 0.05, R * 0.05);
+      paint(ctx, shade(ch.skin, -0.25), ch.outline, R * 0.02);
+    }
+  }
+  // Glossy vinyl shine.
+  ctx.globalAlpha = 0.4;
+  ellipse(ctx, -R * 0.45, -R * 0.58, R * 0.26, R * 0.11, -0.6);
+  paint(ctx, '#ffffff');
+  ctx.globalAlpha = 1;
   // Rim shade on the side turning away.
   ctx.globalAlpha = 0.14 * Math.abs(sy);
   ellipse(ctx, sy > 0 ? -R * 1.3 : R * 1.3, 0, R * 0.95, R * 1.3);
@@ -215,7 +296,14 @@ export function drawCharacterHead(ctx, ch, head) {
       paint(ctx, ch.cheeks);
     }
   }
-  if (ch.muzzle) {
+  if (ch.muzzle && ch.lobes) {
+    for (const s of [-1, 1]) {
+      ellipse(ctx, s * R * 0.15 * cy, R * 0.33, R * 0.21 * puff, R * 0.16);
+      paint(ctx, ch.muzzle);
+    }
+    ellipse(ctx, 0, R * 0.44, R * 0.12, R * 0.09);
+    paint(ctx, ch.muzzle);
+  } else if (ch.muzzle) {
     ellipse(ctx, 0, R * 0.32, R * 0.46 * (0.85 + 0.15 * cy) * puff, R * 0.3);
     paint(ctx, ch.muzzle);
   }
@@ -247,6 +335,14 @@ export function drawCharacterHead(ctx, ch, head) {
     }
   }
   ctx.restore();
+
+  if (ch.accessory) {
+    ctx.save();
+    ctx.translate(earOx, 0);
+    drawAccessory(ctx, ch, R, true);
+    drawAccessory(ctx, ch, R, false);
+    ctx.restore();
+  }
 }
 
 function eyeLayout(ch, R, cy, sy) {
@@ -254,7 +350,7 @@ function eyeLayout(ch, R, cy, sy) {
     const persp = 1 + s * sy * 0.15;
     if (ch.eyes === 'frog') return { s, x: s * R * 0.47 * cy, y: -R * 0.66, rx: R * 0.19 * persp, ry: R * 0.2 * persp };
     if (ch.eyes === 'alien') return { s, x: s * R * 0.4 * cy, y: -R * 0.08, rx: R * 0.22 * persp, ry: R * 0.3 * persp, rot: s * -0.45 };
-    return { s, x: s * R * 0.36 * cy, y: -R * 0.06, rx: R * 0.16 * persp, ry: R * 0.19 * persp };
+    return { s, x: s * R * 0.37 * cy, y: -R * 0.02, rx: R * 0.19 * persp, ry: R * 0.22 * persp };
   });
 }
 
@@ -342,6 +438,20 @@ function drawEye(ctx, ch, R, bs, e) {
   ellipse(ctx, 0, -h * 1.05, rx * 1.2, h * 0.45);
   paint(ctx, 'rgba(0,0,0,0.12)');
   ctx.restore();
+  // Bold upper lid line, plus lashes for some characters.
+  ctx.beginPath();
+  ctx.ellipse(0, 0, rx, h, 0, Math.PI * 1.05, Math.PI * 1.95);
+  paint(ctx, null, ch.outline, R * 0.055);
+  if (ch.lashes) {
+    for (const k of [0, 1]) {
+      const a = Math.PI * (e.s > 0 ? 1.9 - k * 0.12 : 1.1 + k * 0.12);
+      const px = Math.cos(a) * rx; const py = Math.sin(a) * h;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + e.s * R * 0.08, py - R * 0.05 - k * R * 0.02);
+      paint(ctx, null, ch.outline, R * 0.035);
+    }
+  }
   ctx.restore();
 }
 
@@ -386,8 +496,27 @@ function drawMouth(ctx, ch, R, bs, cy) {
   const m = mouthParams(bs);
   const wide = ch.wideMouth ? 1.5 : 1;
   const pts = mouthPolygon(m);
+  const my = R * (ch.mouthY ?? 0.4);
+  if (ch.catMouth && m.open < 0.05 && bs.smile < 0.5) {
+    // Cute ":3" mouth when closed.
+    ctx.save();
+    ctx.translate(0, my);
+    ctx.scale(R * (0.7 + 0.3 * cy), R);
+    const c = m.corner - bs.smile * 0.03;
+    ctx.beginPath();
+    ctx.moveTo(0, -0.16);
+    ctx.lineTo(0, -0.02);
+    ctx.moveTo(-0.17, c);
+    ctx.quadraticCurveTo(-0.085, 0.1, 0, -0.02);
+    ctx.quadraticCurveTo(0.085, 0.1, 0.17, c);
+    ctx.lineWidth = 0.035;
+    ctx.strokeStyle = ch.outline;
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
   ctx.save();
-  ctx.translate(0, R * (ch.mouthY ?? 0.4));
+  ctx.translate(0, my);
   ctx.scale(R * (0.7 + 0.3 * cy) * wide, R);
   ctx.beginPath();
   pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
@@ -419,5 +548,18 @@ function drawMouth(ctx, ch, R, bs, cy) {
   ctx.lineWidth = 0.035;
   ctx.strokeStyle = ch.glow || ch.outline;
   ctx.stroke();
+  if (ch.tongue && bs.smile > 0.3) {
+    // Happy puppy tongue hanging out.
+    const ty = (m.corner + m.lower) * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(-0.07, ty - 0.02);
+    ctx.lineTo(-0.07, ty + 0.06);
+    ctx.quadraticCurveTo(-0.07, ty + 0.15, 0, ty + 0.15);
+    ctx.quadraticCurveTo(0.07, ty + 0.15, 0.07, ty + 0.06);
+    ctx.lineTo(0.07, ty - 0.02);
+    paint(ctx, '#ff7f96', ch.outline, 0.03);
+    ctx.beginPath(); ctx.moveTo(0, ty); ctx.lineTo(0, ty + 0.08);
+    paint(ctx, null, '#d9506b', 0.02);
+  }
   ctx.restore();
 }
