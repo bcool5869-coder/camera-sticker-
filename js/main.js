@@ -115,7 +115,8 @@ function headFromTracking(st, now) {
   const f = st.face;
   if (f && now - st.faceSeenAt < GRACE_MS) {
     return {
-      x: f.x, y: f.y - f.height * 0.05, r: f.width * 0.74,
+      // Big enough to hide the whole head: hair/scalp above, chin and beard below.
+      x: f.x, y: f.y - f.height * 0.15, r: Math.max(f.width * 0.9, f.height * 0.78),
       roll: f.roll, yaw: f.yaw, pitch: f.pitch,
       bs: boostExpressions(f.bs, settings.boost),
     };
